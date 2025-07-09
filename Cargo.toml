@@ -20,16 +20,16 @@ base-reth-flashblocks-rpc = { path = "crates/flashblocks-rpc" }
 base-reth-node = { path = "crates/node" }
 
 # reth
-reth = { git = "https://github.com/paradigmxyz/reth", tag = "v1.5.1" }
-reth-optimism-node = { git = "https://github.com/paradigmxyz/reth", tag = "v1.5.1" }
-reth-optimism-cli = { git = "https://github.com/paradigmxyz/reth", tag = "v1.5.1" }
-reth-primitives = { git = "https://github.com/paradigmxyz/reth", tag = "v1.5.1" }
-reth-rpc-eth-api = { git = "https://github.com/paradigmxyz/reth", tag = "v1.5.1" }
-reth-optimism-primitives = { git = "https://github.com/paradigmxyz/reth", tag = "v1.5.1" }
-reth-rpc-convert = { git = "https://github.com/paradigmxyz/reth", tag = "v1.5.1" }
-reth-optimism-rpc = { git = "https://github.com/paradigmxyz/reth", tag = "v1.5.1" }
-reth-optimism-evm = { git = "https://github.com/paradigmxyz/reth", tag = "v1.5.1" }
-reth-optimism-chainspec = { git = "https://github.com/paradigmxyz/reth", tag = "v1.5.1" }
+reth = { git = "https://github.com/paradigmxyz/reth", rev = "ed3e62daac0cfd78989cd64165e92847a694287f" }
+reth-optimism-node = { git = "https://github.com/paradigmxyz/reth", rev = "ed3e62daac0cfd78989cd64165e92847a694287f" }
+reth-optimism-cli = { git = "https://github.com/paradigmxyz/reth", rev = "ed3e62daac0cfd78989cd64165e92847a694287f" }
+reth-primitives = { git = "https://github.com/paradigmxyz/reth", rev = "ed3e62daac0cfd78989cd64165e92847a694287f" }
+reth-rpc-eth-api = { git = "https://github.com/paradigmxyz/reth", rev = "ed3e62daac0cfd78989cd64165e92847a694287f" }
+reth-optimism-primitives = { git = "https://github.com/paradigmxyz/reth", rev = "ed3e62daac0cfd78989cd64165e92847a694287f" }
+reth-rpc-convert = { git = "https://github.com/paradigmxyz/reth", rev = "ed3e62daac0cfd78989cd64165e92847a694287f" }
+reth-optimism-rpc = { git = "https://github.com/paradigmxyz/reth", rev = "ed3e62daac0cfd78989cd64165e92847a694287f" }
+reth-optimism-evm = { git = "https://github.com/paradigmxyz/reth", rev = "ed3e62daac0cfd78989cd64165e92847a694287f" }
+reth-optimism-chainspec = { git = "https://github.com/paradigmxyz/reth", rev = "ed3e62daac0cfd78989cd64165e92847a694287f" }
 
 # revm
 revm = { version = "27.0.2", default-features = false }

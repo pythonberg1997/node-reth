@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::cache::{Cache, CacheKey};
-use crate::flashblocks::FlashblocksApi;
+use crate::flashblocks::{FlashblocksApi, FlashblockMetadata};
 use crate::metrics::Metrics;
 use alloy_consensus::transaction::TransactionMeta;
 use alloy_consensus::{transaction::Recovered, transaction::TransactionInfo};
@@ -11,8 +11,9 @@ use alloy_primitives::{Address, Sealable, TxHash, U256};
 use alloy_rpc_types::TransactionTrait;
 use alloy_rpc_types::{BlockTransactions, Header};
 use jsonrpsee::{
-    core::{async_trait, RpcResult},
+    core::{async_trait, RpcResult, SubscriptionResult},
     proc_macros::rpc,
+    PendingSubscriptionSink, SubscriptionMessage,
 };
 use op_alloy_consensus::OpTxEnvelope;
 use op_alloy_consensus::{OpDepositReceipt, OpReceiptEnvelope};
@@ -74,6 +75,10 @@ pub trait EthApiOverride {
         &self,
         transaction: alloy_primitives::Bytes,
     ) -> RpcResult<Option<RpcReceipt<Optimism>>>;
+
+    /// Subscribes to flashblock metadata updates
+    #[subscription(name = "subscribeFlashblockMetadata", item = FlashblockMetadata)]
+    fn subscribe_flashblock_metadata(&self) -> SubscriptionResult;
 }
 
 #[derive(Debug)]
@@ -84,6 +89,7 @@ pub struct EthApiExt<Eth, F> {
     chain_spec: Arc<OpChainSpec>,
     flashblocks_api: F,
     total_timeout_secs: u64,
+    metadata_sender: tokio::sync::broadcast::Sender<FlashblockMetadata>,
 }
 
 impl<E, F> EthApiExt<E, F>
@@ -96,6 +102,7 @@ where
         chain_spec: Arc<OpChainSpec>,
         flashblocks_api: F,
         total_timeout_secs: u64,
+        metadata_sender: tokio::sync::broadcast::Sender<FlashblockMetadata>,
     ) -> Self {
         Self {
             eth_api,
@@ -104,6 +111,7 @@ where
             chain_spec,
             flashblocks_api,
             total_timeout_secs,
+            metadata_sender,
         }
     }
 
@@ -537,6 +545,36 @@ where
                 Ok(None)
             }
         }
+    }
+
+    fn subscribe_flashblock_metadata(
+        &self,
+        pending: PendingSubscriptionSink,
+    ) -> SubscriptionResult {
+        let metadata_sender = self.metadata_sender.clone();
+
+        tokio::spawn(async move {
+            let sink = match pending.accept().await {
+                Ok(sink) => sink,
+                Err(e) => {
+                    error!("failed to accept subscription: {e}");
+                    return;
+                }
+            };
+
+            let mut rx = metadata_sender.subscribe();
+
+            while let Ok(metadata) = rx.recv().await {
+                let msg = SubscriptionMessage::from(
+                    serde_json::value::to_raw_value(&metadata).expect("serialize"),
+                );
+                if sink.send(msg).await.is_err() {
+                    break;
+                }
+            }
+        });
+
+        Ok(())
     }
 }
 

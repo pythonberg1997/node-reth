@@ -19,6 +19,18 @@ use crate::metrics::Metrics;
 pub trait FlashblocksApi {
     /// Subscribe to real-time receipt broadcasts
     fn subscribe_to_receipts(&self) -> broadcast::Receiver<ReceiptWithHash>;
+
+    /// Subscribe to real-time metadata broadcasts
+    fn subscribe_to_metadata(&self) -> broadcast::Receiver<FlashblockMetadata>;
+}
+
+/// A flashblock metadata for broadcasting
+#[derive(Debug, Clone, Copy, Default, serde::Serialize, serde::Deserialize)]
+pub struct FlashblockMetadata {
+    pub block_number: u64,
+    /// The index of the flashblock in the block
+    pub index: u64,
+    pub timestamp: u64,
 }
 
 /// A receipt with its transaction hash for broadcasting
@@ -56,12 +68,14 @@ pub struct FlashblocksClient {
     cache: Arc<Cache>,
     metrics: Metrics,
     receipt_sender: broadcast::Sender<ReceiptWithHash>,
+    metadata_sender: broadcast::Sender<FlashblockMetadata>,
 }
 
 impl FlashblocksClient {
     pub fn new(cache: Arc<Cache>, receipt_buffer_size: usize) -> Self {
         let (sender, mailbox) = mpsc::channel(100);
         let (receipt_sender, _) = broadcast::channel(receipt_buffer_size);
+        let (metadata_sender, _) = broadcast::channel(receipt_buffer_size);
 
         Self {
             sender,
@@ -69,11 +83,20 @@ impl FlashblocksClient {
             cache,
             metrics: Metrics::default(),
             receipt_sender,
+            metadata_sender,
         }
     }
 
     pub fn subscribe_to_receipts(&self) -> broadcast::Receiver<ReceiptWithHash> {
         self.receipt_sender.subscribe()
+    }
+
+    pub fn subscribe_to_metadata(&self) -> broadcast::Receiver<FlashblockMetadata> {
+        self.metadata_sender.subscribe()
+    }
+
+    pub fn metadata_sender(&self) -> broadcast::Sender<FlashblockMetadata> {
+        self.metadata_sender.clone()
     }
 
     pub fn init(&mut self, ws_url: String) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -85,6 +108,7 @@ impl FlashblocksClient {
         let sender = self.sender.clone();
         let cache_clone = self.cache.clone();
         let receipt_sender_clone = self.receipt_sender.clone();
+        let metadata_sender_clone = self.metadata_sender.clone();
 
         // Take ownership of mailbox for the actor loop
         let mut mailbox = std::mem::replace(&mut self.mailbox, mpsc::channel(1).1);
@@ -169,7 +193,7 @@ impl FlashblocksClient {
             while let Some(message) = mailbox.recv().await {
                 match message {
                     ActorMessage::BestPayload { payload } => {
-                        process_payload(payload, &cache_clone, &receipt_sender_clone);
+                        process_payload(payload, &cache_clone, &receipt_sender_clone, &metadata_sender_clone);
                     }
                 }
             }
@@ -182,6 +206,10 @@ impl FlashblocksClient {
 impl FlashblocksApi for FlashblocksClient {
     fn subscribe_to_receipts(&self) -> broadcast::Receiver<ReceiptWithHash> {
         self.receipt_sender.subscribe()
+    }
+    
+    fn subscribe_to_metadata(&self) -> broadcast::Receiver<FlashblockMetadata> {
+        self.metadata_sender.subscribe()
     }
 }
 
@@ -204,6 +232,7 @@ fn process_payload(
     payload: FlashblocksPayloadV1,
     cache: &Arc<Cache>,
     receipt_sender: &broadcast::Sender<ReceiptWithHash>,
+    metadata_sender: &broadcast::Sender<FlashblockMetadata>,
 ) {
     let metrics = Metrics::default();
     let msg_processing_start_time = Instant::now();
@@ -410,6 +439,14 @@ fn process_payload(
             }
         }
     }
+
+    // Broadcast FlashblockMetadata to subscribers
+    let flashblock_metadata = FlashblockMetadata {
+        block_number: metadata.block_number,
+        index: payload.index,
+        timestamp: base.timestamp,
+    };
+    let _ = metadata_sender.send(flashblock_metadata);
 
     // check duration on the most heavy payload
     if payload.index == 0 {
@@ -797,15 +834,16 @@ mod tests {
     fn test_process_payload() {
         let cache = Arc::new(Cache::default());
         let (receipt_sender, mut receipt_receiver) = broadcast::channel(100);
+        let (metadata_sender, _) = broadcast::channel(100);
 
         let payload = create_first_payload();
 
         // Process first payload
-        process_payload(payload, &cache, &receipt_sender);
+        process_payload(payload, &cache, &receipt_sender, &metadata_sender);
 
         let payload2 = create_second_payload();
         // Process second payload
-        process_payload(payload2, &cache, &receipt_sender);
+        process_payload(payload2, &cache, &receipt_sender, &metadata_sender);
 
         // Check that receipts were broadcast for both transactions
         let mut receipts = vec![];
@@ -942,6 +980,7 @@ mod tests {
     fn test_skip_initial_non_zero_index_payload() {
         let cache = Arc::new(Cache::default());
         let (receipt_sender, _) = broadcast::channel(100);
+        let (metadata_sender, _) = broadcast::channel(100);
 
         let metadata = Metadata {
             block_number: 1,
@@ -958,7 +997,7 @@ mod tests {
         };
 
         // Process payload
-        process_payload(payload, &cache, &receipt_sender);
+        process_payload(payload, &cache, &receipt_sender, &metadata_sender);
 
         // Verify no block was stored, since it skips the first payload
         assert!(cache.get::<OpBlock>(&CacheKey::PendingBlock).is_none());
@@ -969,11 +1008,12 @@ mod tests {
         // Create cache
         let cache = Arc::new(Cache::default());
         let (receipt_sender, _) = broadcast::channel(100);
+        let (metadata_sender, _) = broadcast::channel(100);
 
         // Process first block with 3 flash blocks
         // Block 1, payload 0 (starts a new block)
         let payload1_0 = create_payload_with_index(0, 1);
-        process_payload(payload1_0, &cache, &receipt_sender);
+        process_payload(payload1_0, &cache, &receipt_sender, &metadata_sender);
 
         // Check that highest_payload_index was set to 0
         let highest = cache.get::<u64>(&CacheKey::HighestPayloadIndex).unwrap();
@@ -981,7 +1021,7 @@ mod tests {
 
         // Block 1, payload 1
         let payload1_1 = create_payload_with_index(1, 1);
-        process_payload(payload1_1, &cache, &receipt_sender);
+        process_payload(payload1_1, &cache, &receipt_sender, &metadata_sender);
 
         // Check that highest_payload_index was updated
         let highest = cache.get::<u64>(&CacheKey::HighestPayloadIndex).unwrap();
@@ -989,7 +1029,7 @@ mod tests {
 
         // Block 1, payload 2
         let payload1_2 = create_payload_with_index(2, 1);
-        process_payload(payload1_2, &cache, &receipt_sender);
+        process_payload(payload1_2, &cache, &receipt_sender, &metadata_sender);
 
         // Check that highest_payload_index was updated
         let highest = cache.get::<u64>(&CacheKey::HighestPayloadIndex).unwrap();
@@ -997,7 +1037,7 @@ mod tests {
 
         // Now start a new block (block 2, payload 0)
         let payload2_0 = create_payload_with_index(0, 2);
-        process_payload(payload2_0, &cache, &receipt_sender);
+        process_payload(payload2_0, &cache, &receipt_sender, &metadata_sender);
 
         // Check that highest_payload_index was reset to 0
         let highest = cache.get::<u64>(&CacheKey::HighestPayloadIndex).unwrap();
@@ -1005,7 +1045,7 @@ mod tests {
 
         // Block 2, payload 1 (out of order with payload 3)
         let payload2_1 = create_payload_with_index(1, 2);
-        process_payload(payload2_1, &cache, &receipt_sender);
+        process_payload(payload2_1, &cache, &receipt_sender, &metadata_sender);
 
         // Check that highest_payload_index was updated
         let highest = cache.get::<u64>(&CacheKey::HighestPayloadIndex).unwrap();
@@ -1013,7 +1053,7 @@ mod tests {
 
         // Block 2, payload 3 (skipping 2)
         let payload2_3 = create_payload_with_index(3, 2);
-        process_payload(payload2_3, &cache, &receipt_sender);
+        process_payload(payload2_3, &cache, &receipt_sender, &metadata_sender);
 
         // Check that highest_payload_index was updated
         let highest = cache.get::<u64>(&CacheKey::HighestPayloadIndex).unwrap();
@@ -1021,7 +1061,7 @@ mod tests {
 
         // Block 2, payload 2 (out of order, should not change highest)
         let payload2_2 = create_payload_with_index(2, 2);
-        process_payload(payload2_2, &cache, &receipt_sender);
+        process_payload(payload2_2, &cache, &receipt_sender, &metadata_sender);
 
         // Check that highest_payload_index is still 3
         let highest = cache.get::<u64>(&CacheKey::HighestPayloadIndex).unwrap();
@@ -1029,7 +1069,7 @@ mod tests {
 
         // Start block 3, payload 0
         let payload3_0 = create_payload_with_index(0, 3);
-        process_payload(payload3_0, &cache, &receipt_sender);
+        process_payload(payload3_0, &cache, &receipt_sender, &metadata_sender);
 
         // Check that highest_payload_index was reset to 0
         // Also verify metric would have been recorded (though we can't directly check the metric's value)

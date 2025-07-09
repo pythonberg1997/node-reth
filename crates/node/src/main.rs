@@ -74,12 +74,14 @@ fn main() {
                             .init(flashblocks_rollup_args.websocket_url.unwrap().clone())
                             .unwrap();
 
+                        let metadata_sender = flashblocks_client.metadata_sender();
                         let api_ext = EthApiExt::new(
                             ctx.registry.eth_api().clone(),
                             cache.clone(),
                             chain_spec.clone(),
                             flashblocks_client,
                             total_timeout_secs,
+                            metadata_sender,
                         );
                         ctx.modules.replace_configured(api_ext.into_rpc())?;
                     } else {
