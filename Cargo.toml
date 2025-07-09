@@ -20,17 +20,17 @@ base-reth-flashblocks-rpc = { path = "crates/flashblocks-rpc" }
 base-reth-node = { path = "crates/node" }
 
 # reth
-reth = { git = "https://github.com/paradigmxyz/reth", tag = "v1.6.0" }
-reth-optimism-node = { git = "https://github.com/paradigmxyz/reth", tag = "v1.6.0" }
-reth-optimism-cli = { git = "https://github.com/paradigmxyz/reth", tag = "v1.6.0" }
-reth-primitives = { git = "https://github.com/paradigmxyz/reth", tag = "v1.6.0" }
-reth-rpc-eth-api = { git = "https://github.com/paradigmxyz/reth", tag = "v1.6.0" }
-reth-optimism-primitives = { git = "https://github.com/paradigmxyz/reth", tag = "v1.6.0" }
-reth-rpc-convert = { git = "https://github.com/paradigmxyz/reth", tag = "v1.6.0" }
-reth-optimism-rpc = { git = "https://github.com/paradigmxyz/reth", tag = "v1.6.0" }
-reth-optimism-evm = { git = "https://github.com/paradigmxyz/reth", tag = "v1.6.0" }
-reth-optimism-chainspec = { git = "https://github.com/paradigmxyz/reth", tag = "v1.6.0" }
-reth-provider = { git = "https://github.com/paradigmxyz/reth", tag = "v1.6.0" }
+reth = { git = "https://github.com/paradigmxyz/reth", rev = "38ba19b72dd250c4f0859c0b37324273ee0b6dc7" }
+reth-optimism-node = { git = "https://github.com/paradigmxyz/reth", rev = "38ba19b72dd250c4f0859c0b37324273ee0b6dc7" }
+reth-optimism-cli = { git = "https://github.com/paradigmxyz/reth", rev = "38ba19b72dd250c4f0859c0b37324273ee0b6dc7" }
+reth-primitives = { git = "https://github.com/paradigmxyz/reth", rev = "38ba19b72dd250c4f0859c0b37324273ee0b6dc7" }
+reth-rpc-eth-api = { git = "https://github.com/paradigmxyz/reth", rev = "38ba19b72dd250c4f0859c0b37324273ee0b6dc7" }
+reth-optimism-primitives = { git = "https://github.com/paradigmxyz/reth", rev = "38ba19b72dd250c4f0859c0b37324273ee0b6dc7" }
+reth-rpc-convert = { git = "https://github.com/paradigmxyz/reth", rev = "38ba19b72dd250c4f0859c0b37324273ee0b6dc7" }
+reth-optimism-rpc = { git = "https://github.com/paradigmxyz/reth", rev = "38ba19b72dd250c4f0859c0b37324273ee0b6dc7" }
+reth-optimism-evm = { git = "https://github.com/paradigmxyz/reth", rev = "38ba19b72dd250c4f0859c0b37324273ee0b6dc7" }
+reth-optimism-chainspec = { git = "https://github.com/paradigmxyz/reth", rev = "38ba19b72dd250c4f0859c0b37324273ee0b6dc7" }
+reth-provider = { git = "https://github.com/paradigmxyz/reth", rev = "38ba19b72dd250c4f0859c0b37324273ee0b6dc7" }
 
 # revm
 revm = { version = "27.0.3", default-features = false }
